@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Your case — MyKeyz Deposit Recovery</title>
+<meta name="theme-color" content="#0A2540">
+<link rel="icon" href="data:,">
+<style>
+  :root{
+    --navy:#0A2540; --navy-deep:#061A2C; --navy-soft:#1f3a5c; --fog:#F4F8FA;
+    --ink:#0F172A; --muted:#5b6b7d; --faint:#8a97a6; --line:#e4e9ef; --line-soft:#eef2f6;
+    --white:#fff; --ok:#15803d; --ok-bg:#f0fdf5; --ok-line:#c6ebd3; --brass:#b78a4a;
+    --warn:#9a6a16; --warn-bg:#fbf6ec; --err:#b4341f; --err-bg:#fdf2f0;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--fog);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.6}
+  a{color:inherit}
+  .wrap{max-width:860px;margin:0 auto;padding:0 22px}
+
+  /* Top bar */
+  nav{position:sticky;top:0;z-index:10;background:rgba(255,255,255,0.9);backdrop-filter:saturate(160%) blur(12px);border-bottom:1px solid var(--line-soft)}
+  .navbar{display:flex;align-items:center;justify-content:space-between;height:62px;gap:12px}
+  .brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+  .brand .name{font-size:17px;font-weight:800;color:var(--navy);letter-spacing:-0.3px}
+  .brand .name span{color:var(--faint);font-weight:600}
+  .session{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:650;color:var(--navy-soft);
+           background:var(--fog);border:1px solid var(--line);padding:6px 12px;border-radius:999px;max-width:46vw;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .session svg{width:14px;height:14px;color:var(--brass);flex:0 0 auto}
+
+  main{padding:34px 0 70px}
+  .crumb{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:650;color:var(--navy-soft);
+         background:none;border:0;cursor:pointer;padding:0;margin:0 0 18px;font-family:inherit}
+  .crumb svg{width:15px;height:15px}
+
+  h1{font-size:30px;line-height:1.12;letter-spacing:-0.7px;color:var(--navy);margin:0 0 10px;font-weight:800}
+  .lede{font-size:16px;color:var(--muted);margin:0 0 26px;max-width:560px}
+  h2{font-size:19px;color:var(--navy);margin:0 0 4px;font-weight:750;letter-spacing:-0.3px}
+
+  .card{background:var(--white);border:1px solid var(--line);border-radius:18px;padding:24px;margin-bottom:18px}
+  .card .hd{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}
+  .card .hd p{margin:4px 0 0;font-size:13.5px;color:var(--muted)}
+
+  /* Chips */
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;letter-spacing:0.3px;
+        padding:5px 11px;border-radius:999px;text-transform:uppercase;white-space:nowrap}
+  .chip svg{width:13px;height:13px}
+  .chip.draft{background:var(--fog);color:var(--navy-soft);border:1px solid var(--line)}
+  .chip.wait{background:var(--warn-bg);color:var(--warn);border:1px solid #efe0c2}
+  .chip.done{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-line)}
+  .chip.stage{background:var(--navy);color:#fff}
+
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;text-decoration:none;font-weight:700;
+       font-size:15px;padding:13px 22px;border-radius:12px;cursor:pointer;border:1px solid transparent;font-family:inherit;
+       transition:transform .12s, background .15s, border-color .15s}
+  .btn:active{transform:translateY(1px)}
+  .btn svg{width:18px;height:18px}
+  .btn-primary{background:var(--navy);color:#fff}
+  .btn-primary:hover{background:var(--navy-deep)}
+  .btn-ghost{background:var(--white);color:var(--navy);border-color:var(--line)}
+  .btn-ghost:hover{border-color:var(--navy)}
+  .btn-block{width:100%}
+  .btn[disabled]{opacity:.55;cursor:not-allowed}
+  .btn-row{display:flex;gap:12px;flex-wrap:wrap}
+
+  /* Pricing tiers */
+  .tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:stretch}
+  .tier{display:flex;flex-direction:column;background:var(--white);border:1px solid var(--line);border-radius:18px;padding:22px}
+  .tier.feature{border-color:var(--navy);box-shadow:0 22px 46px -30px rgba(10,37,64,0.4);position:relative}
+  .tier .tag{position:absolute;top:-11px;left:22px;background:var(--navy);color:#fff;font-size:10.5px;font-weight:700;
+             letter-spacing:0.4px;padding:4px 11px;border-radius:999px;text-transform:uppercase}
+  .tier .stg{font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--faint)}
+  .tier h3{font-size:18px;color:var(--navy);margin:5px 0 2px;font-weight:800}
+  .tier .amt{font-size:30px;font-weight:800;color:var(--navy);letter-spacing:-1px;margin:6px 0 2px}
+  .tier .amt small{font-size:13px;font-weight:600;color:var(--muted)}
+  .tier .desc{font-size:13px;color:var(--muted);margin:6px 0 16px;flex:1}
+  .tier .btn{margin-top:auto}
+
+  /* Case list */
+  .caselist{display:flex;flex-direction:column;gap:12px}
+  .case-row{display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--white);
+            border:1px solid var(--line);border-radius:16px;padding:18px 20px;cursor:pointer;text-align:left;width:100%;font-family:inherit;transition:border-color .15s,box-shadow .15s}
+  .case-row:hover{border-color:var(--navy-soft);box-shadow:0 16px 32px -26px rgba(10,37,64,0.4)}
+  .case-row .meta h3{margin:0 0 5px;font-size:16px;color:var(--navy);font-weight:750}
+  .case-row .meta .sm{font-size:12.5px;color:var(--muted)}
+  .case-row .go{color:var(--faint)}.case-row .go svg{width:20px;height:20px}
+
+  /* Facts grid */
+  .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .fact{background:var(--fog);border:1px solid var(--line-soft);border-radius:13px;padding:14px 16px}
+  .fact .k{font-size:11px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;color:var(--faint);margin-bottom:5px}
+  .fact .v{font-size:18px;font-weight:750;color:var(--navy)}
+  .fact .v small{font-size:12px;font-weight:600;color:var(--muted)}
+
+  /* Readiness meter */
+  .meter{height:9px;background:var(--line-soft);border-radius:999px;overflow:hidden;margin:6px 0 4px}
+  .meter > i{display:block;height:100%;background:linear-gradient(90deg,var(--brass),var(--navy));border-radius:999px;transition:width .4s}
+  .meter-note{font-size:12.5px;color:var(--muted)}
+
+  /* Checklist */
+  .check{list-style:none;margin:14px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .check li{display:flex;align-items:center;gap:11px;background:var(--white);border:1px solid var(--line);
+            border-radius:12px;padding:11px 13px;font-size:13.5px;cursor:pointer;transition:border-color .15s}
+  .check li:hover{border-color:var(--navy-soft)}
+  .check li.on{cursor:default;background:var(--ok-bg);border-color:var(--ok-line)}
+  .check li.on:hover{border-color:var(--ok-line)}
+  .box{width:20px;height:20px;border-radius:6px;border:1.6px solid var(--line);flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+  .check li.on .box{background:var(--ok);border-color:var(--ok)}
+  .box svg{width:13px;height:13px;color:#fff}
+  .check .lbl{color:var(--ink);line-height:1.3}
+  .check .req{display:block;font-size:10.5px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;color:var(--brass)}
+  .check li.on .req{color:var(--ok)}
+
+  /* Notices */
+  .note{display:flex;gap:11px;align-items:flex-start;border-radius:13px;padding:14px 16px;font-size:13.5px;line-height:1.5;margin-bottom:16px}
+  .note svg{width:18px;height:18px;flex:0 0 auto;margin-top:1px}
+  .note.info{background:var(--fog);border:1px solid var(--line);color:var(--navy-soft)}
+  .note.good{background:var(--ok-bg);border:1px solid var(--ok-line);color:#1c5b38}
+  .note.warn{background:var(--warn-bg);border:1px solid #efe0c2;color:var(--warn)}
+  .note.bad{background:var(--err-bg);border:1px solid #f3cfc8;color:var(--err)}
+
+  .fine{font-size:11.5px;line-height:1.6;color:var(--faint);margin:22px 0 0}
+  .center{text-align:center;padding:60px 0;color:var(--muted)}
+  .center .spinner{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--navy);border-radius:50%;animation:spin .9s linear infinite;margin:0 auto 14px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .sec-label{font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--faint);margin:0 0 12px}
+
+  @media (max-width:720px){
+    .tiers{grid-template-columns:1fr}
+    .facts{grid-template-columns:1fr 1fr}
+    .check{grid-template-columns:1fr}
+    h1{font-size:25px}
+  }
+</style>
+</head>
+<body>
+<nav><div class="wrap navbar">
+  <a class="brand" href="./workspace.html">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="9" cy="9" r="5" stroke="#0A2540" stroke-width="1.9"/>
+      <path d="M12.6 12.6 20 20M16.5 16.5l2-2M14.5 14.5l2-2" stroke="#0A2540" stroke-width="1.9" stroke-linecap="round"/>
+    </svg>
+    <div class="name">MyKeyz <span>Deposit Recovery</span></div>
+  </a>
+  <div class="session" id="session">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M6 10V8a6 6 0 0 1 12 0v2M5 10h14v10H5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+    <span id="sessionName">Private session</span>
+  </div>
+</div></nav>
+
+<main><div class="wrap" id="app">
+  <div class="center"><div class="spinner"></div>Opening your private case…</div>
+</div></main>
+
+<script>
+// ── Config + token ───────────────────────────────────────────────────────────
+const API = 'https://api.mykeyz.io/v1';
+const TOKEN = sessionStorage.getItem('mk_web_token');
+
+// SVG icon set — real icons only, no emoji.
+const I = {
+  back:'<path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  arrow:'<path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  chevron:'<path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  check:'<path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  lock:'<path d="M6 10V8a6 6 0 0 1 12 0v2M5 10h14v10H5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+  shield:'<path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>',
+  doc:'<path d="M6 3h9l5 5v13H6z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 3v6h6" stroke="currentColor" stroke-width="1.8"/>',
+  mail:'<path d="M4 6h16v12H4zM4 7l8 6 8-6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+  scale:'<path d="M12 3v18M5 7h14M7 7l-3 7h6zM17 7l-3 7h6z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>',
+  download:'<path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>',
+  info:'<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>',
+  clock:'<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+};
+const svg = (k,extra='') => `<svg viewBox="0 0 24 24" fill="none" ${extra}>${I[k]}</svg>`;
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+const app = document.getElementById('app');
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const aed = n => (n==null?null:'AED '+Number(n).toLocaleString('en-US'));
+const fmtDate = s => { try{ return new Date(s).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}catch{return '';} };
+
+function relink(reason){
+  sessionStorage.removeItem('mk_web_token');
+  location.replace('./connect.html'+(reason?('#'+reason):''));
+}
+
+// Authenticated fetch. 401 → bounce back to the QR connect screen to re-link.
+async function api(path, opts){
+  opts = opts || {};
+  const headers = Object.assign({Authorization:'Bearer '+TOKEN}, opts.headers||{});
+  if(opts.body && !headers['Content-Type']) headers['Content-Type']='application/json';
+  const r = await fetch(API+path, Object.assign({}, opts, {headers}));
+  if(r.status===401){ relink('expired'); throw new Error('401'); }
+  let data=null; try{ data = await r.json(); }catch{}
+  if(!r.ok){ const e = new Error((data&&(data.error))||('HTTP '+r.status)); e.status=r.status; e.code=data&&data.code; e.data=data; throw e; }
+  return data;
+}
+
+// Public (no-auth) fetch for pricing.
+async function pub(path){ const r = await fetch(API+path); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
+
+// ── state ────────────────────────────────────────────────────────────────────
+let PRICING = null;       // /deposit-recovery/pricing
+const TIER_ORDER = ['landlord_notice','claim_pack','lawyer_filing'];
+
+function statusChip(c){
+  const s = c.status, st = c.stage||{};
+  if(s==='resolved') return `<span class="chip done">${svg('check')} Recovered</span>`;
+  if(s==='closed') return `<span class="chip draft">Closed</span>`;
+  if(s==='filed') return `<span class="chip wait">${svg('clock')} Filed at RDC</span>`;
+  if(s==='awaiting_landlord') return `<span class="chip wait">${svg('clock')} Awaiting landlord</span>`;
+  if(c.paidAt) return `<span class="chip done">${svg('check')} Paid · ready</span>`;
+  return `<span class="chip draft">Draft</span>`;
+}
+
+// ── boot ─────────────────────────────────────────────────────────────────────
+async function boot(){
+  if(!TOKEN){ relink('nosession'); return; }
+  try{
+    const [me, list, pricing] = await Promise.all([
+      api('/auth/me').catch(()=>null),
+      api('/deposit-recovery'),
+      pub('/deposit-recovery/pricing'),
+    ]);
+    PRICING = pricing;
+    const name = me && me.user && (me.user.fullName || me.user.email);
+    if(name) document.getElementById('sessionName').textContent = name;
+
+    const cases = (list && list.cases) || [];
+    // Stripe return: ?case=<id> → open it and confirm payment landed.
+    const ret = new URLSearchParams(location.search).get('case');
+    if(ret){ history.replaceState(null,'',location.pathname); return openCase(ret, {justPaid:true}); }
+
+    if(cases.length===0) return renderEmpty();
+    return renderList(cases);
+  }catch(e){
+    if(e.status===401) return; // relink already fired
+    app.innerHTML = `<div class="note bad">${svg('info')}<div>Couldn't load your workspace. ${esc(e.message)} — <button class="crumb" style="margin:0" onclick="location.reload()">try again</button></div></div>`;
+  }
+}
+
+// ── view: empty (no cases yet) ───────────────────────────────────────────────
+function renderEmpty(){
+  const t = Object.fromEntries(PRICING.tiers.map(x=>[x.tier,x]));
+  app.innerHTML = `
+    <h1>Recover your security deposit</h1>
+    <p class="lede">Start where it makes sense and only pay as far as you need. You keep 100% of whatever you recover — there's no commission.</p>
+    <div class="tiers">
+      ${tierCard(t.landlord_notice,false)}
+      ${tierCard(t.claim_pack,true)}
+      ${tierCard(t.lawyer_filing,false)}
+    </div>
+    <p class="fine">${esc(PRICING.disclaimers[0])}</p>`;
+  PRICING.tiers.forEach(x=>{
+    const b = document.getElementById('start-'+x.tier);
+    if(b) b.onclick = ()=>startCase(x.tier, b);
+  });
+}
+function tierCard(x,feature){
+  return `<div class="tier ${feature?'feature':''}">
+    ${feature?'<span class="tag">Most choose this</span>':''}
+    <span class="stg">Stage ${x.stage}</span>
+    <h3>${esc(x.name)}</h3>
+    <div class="amt">AED ${x.priceAed}</div>
+    <p class="desc">${esc(x.summary)}</p>
+    <button class="btn ${feature?'btn-primary':'btn-ghost'}" id="start-${x.tier}">Start here ${svg('arrow')}</button>
+  </div>`;
+}
+async function startCase(tier, btn){
+  btn.disabled=true; const html=btn.innerHTML; btn.textContent='Creating…';
+  try{ const c = await api('/deposit-recovery',{method:'POST',body:JSON.stringify({tier})}); openCase(c.id); }
+  catch(e){ btn.disabled=false; btn.innerHTML=html; toast(e.message,'bad'); }
+}
+
+// ── view: case list ──────────────────────────────────────────────────────────
+function renderList(cases){
+  app.innerHTML = `
+    <h1>Your cases</h1>
+    <p class="lede">Open a case to review it, pay, and download your prepared documents.</p>
+    <div class="caselist">
+      ${cases.map(c=>`
+        <button class="case-row" data-id="${esc(c.id)}">
+          <div class="meta">
+            <h3>${esc((c.stage&&c.stage.label)||'Deposit recovery')}</h3>
+            <div class="sm">${esc((PRICING.tiers.find(t=>t.tier===c.tier)||{}).name||c.tier)} · opened ${fmtDate(c.createdAt)}${c.withheldAmountAed?(' · '+aed(c.withheldAmountAed)+' withheld'):''}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px">${statusChip(c)}<span class="go">${svg('chevron')}</span></div>
+        </button>`).join('')}
+    </div>
+    <div class="btn-row" style="margin-top:20px"><button class="btn btn-ghost" id="newcase">Start another case ${svg('arrow')}</button></div>`;
+  app.querySelectorAll('.case-row').forEach(el=> el.onclick=()=>openCase(el.dataset.id));
+  document.getElementById('newcase').onclick = ()=> renderEmpty();
+}
+
+// ── view: case detail ────────────────────────────────────────────────────────
+async function openCase(id, opts){
+  opts = opts||{};
+  app.innerHTML = `<div class="center"><div class="spinner"></div>Loading your case…</div>`;
+  let c;
+  try{ c = await api('/deposit-recovery/'+encodeURIComponent(id)); }
+  catch(e){ if(e.status===401) return; app.innerHTML = `<div class="note bad">${svg('info')}<div>${esc(e.message)}</div></div><button class="crumb" onclick="boot()">${svg('back')} Back</button>`; return; }
+
+  // Just back from Stripe but webhook hasn't flipped it yet → poll a few times.
+  if(opts.justPaid && !c.paidAt){ c = await pollPaid(id, c); }
+  renderCase(c);
+}
+
+async function pollPaid(id, c){
+  for(let i=0;i<8 && !c.paidAt;i++){
+    renderCase(c, {confirming:true});
+    await new Promise(r=>setTimeout(r,2500));
+    try{ c = await api('/deposit-recovery/'+encodeURIComponent(id)); }catch{ break; }
+  }
+  return c;
+}
+
+function renderCase(c, opts){
+  opts = opts||{};
+  const st = c.stage||{};
+  const tierName = (PRICING.tiers.find(t=>t.tier===c.tier)||{}).name || c.tier;
+  const paid = !!c.paidAt;
+  const reqDone = (c.checklist||[]).filter(d=>d.required&&d.present).length;
+  const reqTotal = (c.checklist||[]).filter(d=>d.required).length;
+
+  app.innerHTML = `
+    <button class="crumb" id="back">${svg('back')} All cases</button>
+
+    <div class="card">
+      <div class="hd">
+        <div>
+          <span class="chip stage">Stage ${st.stage||1}</span>
+          <h1 style="margin:12px 0 0;font-size:25px">${esc(st.label||'Deposit recovery')}</h1>
+          <p>${esc(tierName)} · opened ${fmtDate(c.createdAt)}</p>
+        </div>
+        ${statusChip(c)}
+      </div>
+      <div class="note info">${svg('info')}<div>${esc(st.nextStep||'')}</div></div>
+      <div class="facts">
+        <div class="fact"><div class="k">Deposit</div><div class="v">${aed(c.depositAmountAed)||'<small>added in the app</small>'}</div></div>
+        <div class="fact"><div class="k">Withheld</div><div class="v">${aed(c.withheldAmountAed)||'<small>added in the app</small>'}</div></div>
+        <div class="fact"><div class="k">Est. RDC fee${c.rdcFeeEstimateAed?'':' '}</div><div class="v">${aed(c.rdcFeeEstimateAed)||'<small>—</small>'}<\/div></div>
+      </div>
+      ${c.rdcFeeEstimateAed?`<p class="meter-note" style="margin-top:10px">You pay the RDC fee directly to the Rental Disputes Centre — MyKeyz never handles it. About half is refunded if you settle through conciliation.</p>`:''}
+    </div>
+
+    ${paymentSection(c, paid, opts)}
+
+    <div class="card">
+      <p class="sec-label">Evidence readiness</p>
+      <h2>${c.caseScore||0}<small style="font-size:14px;color:var(--muted);font-weight:600"> / 100</small></h2>
+      <div class="meter"><i style="width:${Math.max(3,Math.min(100,c.caseScore||0))}%"></i></div>
+      <div class="meter-note">${reqDone} of ${reqTotal} required documents marked ready. This measures how complete your file is — not the outcome.</div>
+      <ul class="check">
+        ${(c.checklist||[]).map(d=>`
+          <li class="${d.present?'on':''}" data-doc="${esc(d.type)}">
+            <span class="box">${d.present?svg('check'):''}</span>
+            <span class="lbl">${esc(d.label)}${d.required?'<span class="req">Required</span>':''}</span>
+          </li>`).join('')}
+      </ul>
+      <p class="meter-note" style="margin-top:12px">Mark the documents you already have. The full files are gathered in the app, alongside your verified move-out report.</p>
+    </div>
+
+    <p class="fine">${esc((PRICING.disclaimers||[]).join(' '))}</p>`;
+
+  document.getElementById('back').onclick = ()=> boot();
+  wirePayment(c);
+  // checklist: add-only "mark ready"
+  app.querySelectorAll('.check li').forEach(li=>{
+    if(li.classList.contains('on')) return;
+    li.onclick = async ()=>{
+      li.style.opacity='.5';
+      try{ const updated = await api('/deposit-recovery/'+encodeURIComponent(c.id)+'/documents',{method:'POST',body:JSON.stringify({docType:li.dataset.doc})}); renderCase(updated, opts); }
+      catch(e){ li.style.opacity=''; toast(e.message,'bad'); }
+    };
+  });
+}
+
+function paymentSection(c, paid, opts){
+  if(opts.confirming){
+    return `<div class="card"><div class="note warn">${svg('clock')}<div>Confirming your payment with the bank… this page updates automatically.</div></div></div>`;
+  }
+  if(paid){
+    const next = nextTier(c.tier);
+    return `<div class="card">
+      <div class="note good">${svg('check')}<div><b>Paid.</b> Your documents are prepared from your verified record and a secure download link has been emailed to you.</div></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="getpack">${svg('download')} Get the download link</button>
+        ${next?`<button class="btn btn-ghost" id="upgrade" data-tier="${next.tier}">Escalate to ${esc(next.name)} ${svg('arrow')}</button>`:''}
+      </div>
+      <div id="packmsg"></div>
+      ${stageActions(c)}
+    </div>`;
+  }
+  // Not paid → primary action is to pay for this case's tier.
+  const tier = PRICING.tiers.find(t=>t.tier===c.tier) || PRICING.tiers[0];
+  return `<div class="card">
+    <div class="hd"><div><h2>Prepare ${esc(tier.name)}</h2><p>Pay securely on the web. Your prepared documents are then emailed to you as a secure download.</p></div></div>
+    <button class="btn btn-primary btn-block" id="pay" data-tier="${tier.tier}">${svg('lock')} Pay AED ${tier.priceAed} &amp; prepare</button>
+    <p class="meter-note" style="margin-top:12px">Secure card payment. ${esc((PRICING.disclaimers||[])[0]||'')}</p>
+  </div>`;
+}
+
+function nextTier(tier){
+  const i = TIER_ORDER.indexOf(tier);
+  if(i<0 || i>=TIER_ORDER.length-1) return null;
+  return PRICING.tiers.find(t=>t.tier===TIER_ORDER[i+1]) || null;
+}
+
+function stageActions(c){
+  const btns=[];
+  if(c.status==='notice_ready'||c.status==='draft') btns.push(['notice-sent','Mark notice as sent']);
+  if(c.tier!=='landlord_notice' && (c.status==='pack_ready'||c.status==='awaiting_landlord')) btns.push(['filed','Mark filed at RDC']);
+  if(c.status==='filed'||c.status==='awaiting_landlord') btns.push(['resolve','Mark deposit recovered']);
+  if(!btns.length) return '';
+  return `<div class="btn-row" style="margin-top:16px">${btns.map(b=>`<button class="btn btn-ghost stage-act" data-act="${b[0]}">${esc(b[1])}</button>`).join('')}</div>`;
+}
+
+function wirePayment(c){
+  const pay = document.getElementById('pay');
+  if(pay) pay.onclick = ()=> checkout(c.id, pay.dataset.tier, pay);
+  const up = document.getElementById('upgrade');
+  if(up) up.onclick = ()=> checkout(c.id, up.dataset.tier, up);
+  const gp = document.getElementById('getpack');
+  if(gp) gp.onclick = ()=> getPack(c, gp);
+  app.querySelectorAll('.stage-act').forEach(b=> b.onclick = ()=> advance(c.id, b.dataset.act, b));
+}
+
+async function checkout(id, tier, btn){
+  btn.disabled=true; const html=btn.innerHTML; btn.textContent='Opening secure checkout…';
+  try{
+    const r = await api('/deposit-recovery/'+encodeURIComponent(id)+'/checkout',{method:'POST',body:JSON.stringify({tier})});
+    if(r && r.checkoutUrl){ location.href = r.checkoutUrl; return; }
+    throw new Error('No checkout URL returned.');
+  }catch(e){
+    btn.disabled=false; btn.innerHTML=html;
+    if(e.code==='already_paid'){ toast('This case already covers that tier.','warn'); openCase(id); return; }
+    if(e.status===503){ toast('Payments are not available right now. Please try again shortly.','warn'); return; }
+    toast(e.message,'bad');
+  }
+}
+
+async function getPack(c, btn){
+  const msg = document.getElementById('packmsg');
+  btn.disabled=true; const html=btn.innerHTML; btn.textContent='Preparing…';
+  try{
+    // Try a fresh signed link first; if none exists yet, assemble it.
+    let url=null;
+    try{ const g = await api('/deposit-recovery/'+encodeURIComponent(c.id)+'/pack'); url = g.downloadUrl; }
+    catch(e){ if(e.status!==404) throw e; }
+    if(!url){ const p = await api('/deposit-recovery/'+encodeURIComponent(c.id)+'/pack',{method:'POST'}); url = p.downloadUrl; }
+    btn.disabled=false; btn.innerHTML=html;
+    if(url){
+      msg.innerHTML = `<div class="note good" style="margin-top:14px">${svg('download')}<div>Your secure download is ready. <a href="${esc(url)}" style="font-weight:700;text-decoration:underline">Download your documents</a> — the link is valid for a short time.</div></div>`;
+      window.open(url,'_blank','noopener');
+    }
+  }catch(e){
+    btn.disabled=false; btn.innerHTML=html;
+    if(e.code==='NO_REPORT'){ msg.innerHTML = `<div class="note warn" style="margin-top:14px">${svg('info')}<div>Link a move-out report to this case in the app first — the pack is built from your verified report.</div></div>`; return; }
+    if(e.status===402){ msg.innerHTML = `<div class="note warn" style="margin-top:14px">${svg('info')}<div>This case hasn't been paid for yet.</div></div>`; return; }
+    msg.innerHTML = `<div class="note bad" style="margin-top:14px">${svg('info')}<div>${esc(e.message)}</div></div>`;
+  }
+}
+
+async function advance(id, act, btn){
+  btn.disabled=true; const html=btn.innerHTML; btn.textContent='Saving…';
+  try{ const c = await api('/deposit-recovery/'+encodeURIComponent(id)+'/'+act,{method:'POST'}); renderCase(c); }
+  catch(e){ btn.disabled=false; btn.innerHTML=html; toast(e.message,'bad'); }
+}
+
+// ── tiny toast ───────────────────────────────────────────────────────────────
+function toast(msg, kind){
+  const cls = kind==='bad'?'bad':kind==='warn'?'warn':'info';
+  const t = document.createElement('div');
+  t.className='note '+cls;
+  t.style.cssText='position:fixed;left:50%;bottom:26px;transform:translateX(-50%);max-width:520px;z-index:50;box-shadow:0 20px 40px -20px rgba(10,37,64,0.4)';
+  t.innerHTML = `${svg('info')}<div>${esc(msg)}</div>`;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 4200);
+}
+
+boot();
+</script>
+</body>
+</html>

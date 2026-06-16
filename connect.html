@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>MyKeyz — Open your private case</title>
+<meta name="theme-color" content="#0A2540">
+<link rel="icon" href="data:,">
+<!-- OSS-first: qrcode lib vendored locally (no CDN dependency / SRI risk). -->
+<script src="./qrcode.min.js"></script>
+<style>
+  :root{
+    --navy:#0A2540; --navy-deep:#061A2C; --navy-soft:#1f3a5c; --fog:#F4F8FA;
+    --ink:#0F172A; --muted:#5b6b7d; --faint:#8a97a6; --line:#e4e9ef; --line-soft:#eef2f6;
+    --white:#fff; --ok:#15803d; --ok-bg:#f0fdf5; --ok-line:#c6ebd3; --brass:#b78a4a;
+    --err:#b4341f; --err-bg:#fdf2f0;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{min-height:100vh;background:var(--white);color:var(--ink);font-family:var(--sans);
+       -webkit-font-smoothing:antialiased;line-height:1.6;
+       display:flex;align-items:center;justify-content:center;padding:32px}
+  .wrap{width:100%;max-width:460px;text-align:center}
+  .brand{display:inline-flex;align-items:center;gap:10px;margin-bottom:30px;text-decoration:none}
+  .brand .name{font-size:18px;font-weight:800;color:var(--navy);letter-spacing:-0.3px}
+  .brand .name span{color:var(--faint);font-weight:600}
+  h1{font-size:27px;line-height:1.15;letter-spacing:-0.6px;color:var(--navy);margin:0 0 10px;font-weight:800}
+  p.sub{color:var(--muted);font-size:15px;margin:0 auto 26px;max-width:400px}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:22px;padding:30px;
+        box-shadow:0 30px 60px -36px rgba(10,37,64,0.28);display:flex;flex-direction:column;align-items:center;gap:18px}
+  .step{font-family:var(--mono);font-size:11px;letter-spacing:1.6px;color:var(--faint);text-transform:uppercase}
+  #qr{width:236px;height:236px;background:#fff;border:1px solid var(--line-soft);border-radius:18px;
+      padding:13px;display:flex;align-items:center;justify-content:center}
+  #qr canvas,#qr img{width:100%!important;height:100%!important}
+  .status{font-size:15px;font-weight:650;min-height:22px;color:var(--ink)}
+  .spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--navy);border-radius:50%;animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .ok{color:var(--ok)}.err{color:var(--err)}
+  .seal{width:74px;height:74px;border-radius:50%;background:var(--ok-bg);border:1px solid var(--ok-line);
+        display:flex;align-items:center;justify-content:center}
+  .seal svg{width:36px;height:36px;color:var(--ok)}
+  .me{margin-top:2px;font-size:13.5px;color:var(--muted)}.me b{color:var(--ink)}
+  .foot{display:inline-flex;align-items:center;gap:8px;color:var(--faint);font-size:12px;margin-top:22px;justify-content:center}
+  .foot svg{width:14px;height:14px;color:var(--brass)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="brand" href="#" aria-label="MyKeyz Deposit Recovery">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="9" cy="9" r="5" stroke="#0A2540" stroke-width="1.9"/>
+        <path d="M12.6 12.6 20 20M16.5 16.5l2-2M14.5 14.5l2-2" stroke="#0A2540" stroke-width="1.9" stroke-linecap="round"/>
+      </svg>
+      <div class="name">MyKeyz <span>Deposit Recovery</span></div>
+    </a>
+    <h1>Open your private case</h1>
+    <p class="sub">This page can't be opened by typing a link. Scan the code below with the MyKeyz app on your phone — it opens a private session tied only to your account, just for this case.</p>
+    <div class="card">
+      <div class="step" id="step">Step 1 · scan with the app</div>
+      <div id="qr"><div class="spinner"></div></div>
+      <div class="status" id="status">Preparing a secure link…</div>
+      <div class="me" id="me"></div>
+    </div>
+    <div class="foot">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M6 10V8a6 6 0 0 1 12 0v2M5 10h14v10H5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      End-to-end encrypted · the link expires when you close it or after a few minutes.
+    </div>
+  </div>
+
+<script>
+// ── Config ───────────────────────────────────────────────────────────────────
+const API = 'https://api.mykeyz.io/v1';
+const HKDF_INFO = 'mykeyz-web-link-v1';     // MUST match backend webLink.ts
+const LINK_ORIGIN = 'https://recover.mykeyz.io'; // QR cosmetic URL; phone reads the id
+
+// ── base64 / base64url helpers ───────────────────────────────────────────────
+const enc = new TextEncoder();
+function b64ToBytes(b64){const s=atob(b64);const a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a;}
+function bytesToB64url(bytes){let s='';bytes.forEach(b=>s+=String.fromCharCode(b));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function b64urlToBytes(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return b64ToBytes(s);}
+
+const $ = id => document.getElementById(id);
+function setStatus(t,cls){const el=$('status');el.textContent=t;el.className='status '+(cls||'');}
+
+// ── The handoff ──────────────────────────────────────────────────────────────
+async function run(){
+  // 1. Ephemeral X25519 keypair (private stays in this tab, never leaves).
+  let kp;
+  try{
+    kp = await crypto.subtle.generateKey({name:'X25519'}, true, ['deriveBits']);
+  }catch(e){
+    setStatus('This browser doesn’t support the secure handshake (needs a current Chrome/Safari/Edge).','err');
+    $('qr').innerHTML=''; return;
+  }
+  const rawPub = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+  const webPublicKey = bytesToB64url(rawPub);
+
+  // 2. Start a session on the backend.
+  let linkId;
+  try{
+    const r = await fetch(API+'/web-link/start',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ webPublicKey, origin: LINK_ORIGIN }),
+    });
+    if(!r.ok) throw new Error('start '+r.status);
+    const j = await r.json();
+    linkId = j.linkId || j.id;
+  }catch(e){
+    setStatus('Couldn’t reach MyKeyz to start a secure session. '+e.message,'err'); $('qr').innerHTML=''; return;
+  }
+
+  // 3. Render the QR. The phone scans it, extracts the id, and authorizes.
+  $('qr').innerHTML='';
+  new QRCode($('qr'), {
+    text: `${LINK_ORIGIN}/link/${linkId}`,
+    width: 210, height: 210,
+    colorDark: '#0A2540', colorLight: '#FFFFFF',
+    correctLevel: QRCode.CorrectLevel.M,
+  });
+  setStatus('Waiting for your phone…');
+
+  // 4. Poll until the phone authorizes, then decrypt the sealed token.
+  const deadline = Date.now() + 5*60*1000;
+  while(Date.now() < deadline){
+    await new Promise(r=>setTimeout(r,1500));
+    let res;
+    try{ res = await (await fetch(`${API}/web-link/${encodeURIComponent(linkId)}/poll`)).json(); }
+    catch{ continue; }
+    if(res.status==='pending') continue;
+    if(res.status==='expired'||res.status==='not_found'){
+      setStatus('This link expired. Refresh to get a new code.','err'); $('qr').innerHTML=''; return;
+    }
+    if(res.status==='authorized' && res.sealed){
+      setStatus('Phone confirmed — opening your case…');
+      try{
+        const token = await decryptSealed(kp.privateKey, linkId, res.sealed);
+        await onAuthenticated(token);
+      }catch(e){
+        setStatus('Secure handshake failed to decrypt. '+e.message,'err');
+      }
+      return;
+    }
+  }
+  setStatus('Timed out. Refresh to try again.','err'); $('qr').innerHTML='';
+}
+
+// Mirror of backend sealToWeb(): ECDH(X25519) → HKDF-SHA256(salt=linkId,
+// info=HKDF_INFO, 32B) → AES-256-GCM decrypt(iv, ct‖tag).
+async function decryptSealed(privateKey, linkId, sealed){
+  const epk = await crypto.subtle.importKey('raw', b64urlToBytes(sealed.epk), {name:'X25519'}, false, []);
+  const sharedBits = await crypto.subtle.deriveBits({name:'X25519', public: epk}, privateKey, 256);
+  const hkdfKey = await crypto.subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveBits']);
+  const keyBits = await crypto.subtle.deriveBits(
+    {name:'HKDF', hash:'SHA-256', salt: enc.encode(linkId), info: enc.encode(HKDF_INFO)}, hkdfKey, 256);
+  const aesKey = await crypto.subtle.importKey('raw', keyBits, {name:'AES-GCM'}, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt(
+    {name:'AES-GCM', iv: b64ToBytes(sealed.iv)}, aesKey, b64ToBytes(sealed.ct)); // ct already has the 16B tag appended
+  return new TextDecoder().decode(pt);
+}
+
+// The scoped token is now ours — store it and hand off to the private workspace.
+async function onAuthenticated(token){
+  sessionStorage.setItem('mk_web_token', token); // tab-scoped, dies with the tab
+  $('step').textContent='Connected · private session';
+  $('qr').innerHTML='<div class="seal"><svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>';
+  setStatus('Connected securely.','ok');
+  try{
+    const me = await (await fetch(API+'/auth/me',{headers:{Authorization:'Bearer '+token}})).json();
+    const name = me?.user?.fullName || me?.user?.email || 'your account';
+    $('me').innerHTML = `Signed in as <b>${name}</b>. Opening your workspace…`;
+  }catch{
+    $('me').textContent = 'Opening your workspace…';
+  }
+  // Same tab → sessionStorage survives the navigation; the workspace reads the token.
+  setTimeout(()=>{ location.href = './workspace.html'; }, 1100);
+}
+
+run();
+</script>
+</body>
+</html>
