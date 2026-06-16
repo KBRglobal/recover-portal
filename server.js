@@ -8,8 +8,10 @@ const path = require('node:path');
 const PORT = process.env.PORT || 8102;
 const ROOT = __dirname;
 
-// Only these are public. Everything else (HANDOFF.md, TODO.md, server.js…) is hidden.
-const ALLOW = new Set(['index.html', 'connect.html', 'workspace.html', 'qrcode.min.js', 'hero.png']);
+// Only these are public. Everything else (HANDOFF.md, TODO.md, server.js, the
+// retired QR connect.html…) is hidden. Door-A flow: index.html (private-link
+// gate) → workspace.html (claim workspace).
+const ALLOW = new Set(['index.html', 'workspace.html']);
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -25,6 +27,11 @@ const server = http.createServer((req, res) => {
     if (name === 'health' || name === 'healthz') {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       return res.end('ok');
+    }
+    // Private claim host — keep it out of every index.
+    if (name === 'robots.txt') {
+      res.writeHead(200, { 'Content-Type': 'text/plain', 'X-Robots-Tag': 'noindex, nofollow' });
+      return res.end('User-agent: *\nDisallow: /\n');
     }
     // strip any directory traversal; we only ever serve flat whitelisted files
     name = path.basename(name);
@@ -43,6 +50,7 @@ const server = http.createServer((req, res) => {
         'Content-Type': TYPES[ext] || 'application/octet-stream',
         'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=3600',
         'X-Content-Type-Options': 'nosniff',
+        'X-Robots-Tag': 'noindex, nofollow',
       });
       res.end(buf);
     });

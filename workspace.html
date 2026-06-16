@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Your case — MyKeyz Deposit Recovery</title>
 <meta name="theme-color" content="#0A2540">
+<meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="data:,">
 <style>
   :root{
@@ -184,9 +185,12 @@ const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 const aed = n => (n==null?null:'AED '+Number(n).toLocaleString('en-US'));
 const fmtDate = s => { try{ return new Date(s).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}catch{return '';} };
 
+// Session ended / expired → back to the private-link gate (locked shell that
+// tells the user to reopen the claim from the app). No public QR entry anymore.
 function relink(reason){
   sessionStorage.removeItem('mk_web_token');
-  location.replace('./connect.html'+(reason?('#'+reason):''));
+  sessionStorage.removeItem('mk_public_ref');
+  location.replace('./index.html'+(reason?('#'+reason):''));
 }
 
 // Authenticated fetch. 401 → bounce back to the QR connect screen to re-link.
@@ -223,12 +227,17 @@ async function boot(){
   if(!TOKEN){ relink('nosession'); return; }
   try{
     const [me, list, pricing] = await Promise.all([
-      api('/auth/me').catch(()=>null),
+      // best-effort, NEVER relinks: the claim session has no /auth/me, so a 401
+      // here is normal — identity falls back to publicRef. The real auth gate is
+      // the /deposit-recovery call below.
+      fetch(API+'/auth/me',{headers:{Authorization:'Bearer '+TOKEN}}).then(r=>r.ok?r.json():null).catch(()=>null),
       api('/deposit-recovery'),
       pub('/deposit-recovery/pricing'),
     ]);
     PRICING = pricing;
-    const name = me && me.user && (me.user.fullName || me.user.email);
+    // Identity: the claim session is purpose-scoped (no /auth/me), so prefer the
+    // publicRef handed over at redeem; fall back to /auth/me if it's a full token.
+    const name = (me && me.user && (me.user.fullName || me.user.email)) || sessionStorage.getItem('mk_public_ref');
     if(name) document.getElementById('sessionName').textContent = name;
 
     const cases = (list && list.cases) || [];
