@@ -29,7 +29,17 @@ Brand: align to `index.html` light system (navy #0A2540 + fog + real SVG icons, 
 - [x] Serve on :8102, load connect.html + workspace.html + case-detail headless (chrome CDP) → 0 console errors on all 3; QR renders against live API; mocked token+fetch render full case UI
 - [ ] Manual (Moshe): scan from phone → connect → workspace renders his real case (only step needing a real account)
 
-## Phase 4 — Deploy (DEFERRED until visuals approved by Moshe)
-- [ ] git init + remote, deploy to Railway (recover.mykeyz.io, project mykeyz-recover)
+## Phase 4 — Deploy (DONE — Moshe lifted the gate)
+- [x] git repo KBRglobal/recover-portal (Moshe created) — init + pushed main
+- [x] server.js (zero-dep static) + package.json so Railway can serve it
+- [x] Railway service `recover-portal` in project mykeyz-api, auto-deploys on push → LIVE recover-portal-production.up.railway.app (verified 200 + /health ok)
+- [x] API CORS: added railway + pages origins to ALLOWED_ORIGINS (api service) — verified live ACAO
+- [x] headless E2E on live Railway portal: QR renders, reaches API, 0 console errors
+- [x] (also on Cloudflare Pages mykeyz-recover.pages.dev — redundant; retire once Railway confirmed)
+
+## Phase 5 — Custom domain (.org — system, NOT .io)
+- [ ] Register mykeyz.org (AVAILABLE) — Moshe's purchase (can't buy via tools)
+- [ ] Add custom domain on Railway recover-portal service → CNAME in .org zone → add origin to API CORS
+- [ ] Update connect.html LINK_ORIGIN to the final .org host
 </content>
 </invoke>
