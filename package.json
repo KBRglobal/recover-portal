@@ -1,0 +1,12 @@
+{
+  "name": "recover-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MyKeyz Deposit Recovery — desktop claim workspace (QR phone→desktop handoff). Static frontend served over a zero-dependency Node server.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
