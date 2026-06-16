@@ -7,13 +7,16 @@
 <title>MyKeyz Claim</title>
 <meta name="theme-color" content="#0A2540">
 <link rel="icon" href="data:,">
+<!-- OSS-first: qrcode lib vendored locally (no CDN / SRI risk). -->
+<script src="./qrcode.min.js"></script>
 <style>
   :root{
     --navy:#0A2540; --navy-deep:#061A2C; --navy-soft:#1f3a5c; --fog:#F4F8FA;
     --ink:#0F172A; --muted:#5b6b7d; --faint:#8a97a6; --line:#e4e9ef; --line-soft:#eef2f6;
     --white:#fff; --ok:#15803d; --ok-bg:#f0fdf5; --ok-line:#c6ebd3; --brass:#b78a4a;
-    --err:#b4341f;
+    --err:#b4341f; --err-bg:#fdf2f0;
     --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
@@ -21,21 +24,40 @@
        -webkit-font-smoothing:antialiased;line-height:1.6;
        display:flex;align-items:center;justify-content:center;padding:32px}
   .wrap{width:100%;max-width:440px;text-align:center}
-  .brand{display:inline-flex;align-items:center;gap:10px;margin-bottom:28px;text-decoration:none}
+  .brand{display:inline-flex;align-items:center;gap:10px;margin-bottom:26px;text-decoration:none}
   .brand .name{font-size:18px;font-weight:800;color:var(--navy);letter-spacing:-0.3px}
   .brand .name span{color:var(--faint);font-weight:600}
-  .card{background:var(--white);border:1px solid var(--line);border-radius:22px;padding:34px 30px;
+  h1{font-size:23px;line-height:1.2;letter-spacing:-0.5px;color:var(--navy);margin:0 0 8px;font-weight:800}
+  p.sub{color:var(--muted);font-size:14.5px;margin:0 auto 22px;max-width:380px}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:22px;padding:30px;
         box-shadow:0 30px 60px -36px rgba(10,37,64,0.28)}
-  .ic{width:60px;height:60px;border-radius:16px;background:var(--fog);border:1px solid var(--line);
-      display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
-  .ic svg{width:30px;height:30px;color:var(--navy)}
-  h1{font-size:23px;line-height:1.2;letter-spacing:-0.5px;color:var(--navy);margin:0 0 10px;font-weight:800}
-  p{font-size:15px;color:var(--muted);margin:0 auto;max-width:360px}
-  p.hint{font-size:13px;color:var(--faint);margin-top:14px}
+  .step{font-family:var(--mono);font-size:11px;letter-spacing:1.6px;color:var(--faint);text-transform:uppercase;margin-bottom:16px}
+  /* code input */
+  input{width:100%;font-family:var(--mono);font-size:24px;font-weight:700;letter-spacing:6px;text-align:center;
+        text-transform:uppercase;color:var(--navy);background:var(--fog);border:1.5px solid var(--line);
+        border-radius:14px;padding:16px 12px;outline:none}
+  input:focus{border-color:var(--navy-soft);background:#fff}
+  input::placeholder{color:var(--faint);letter-spacing:6px}
+  button{margin-top:16px;width:100%;background:var(--navy);color:#fff;border:0;border-radius:13px;
+         padding:14px;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit;display:inline-flex;
+         align-items:center;justify-content:center;gap:9px;transition:background .15s}
+  button:hover{background:var(--navy-deep)} button[disabled]{opacity:.55;cursor:not-allowed}
+  button svg{width:18px;height:18px}
+  /* QR */
+  #qr{width:212px;height:212px;background:#fff;border:1px solid var(--line-soft);border-radius:16px;
+      padding:12px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center}
+  #qr canvas,#qr img{width:100%!important;height:100%!important}
+  .case{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--navy);background:var(--fog);
+        border:1px solid var(--line);border-radius:999px;display:inline-block;padding:5px 14px;margin-bottom:14px}
   .spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--navy);border-radius:50%;animation:spin .9s linear infinite;margin:0 auto}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .err h1{color:var(--err)}
-  .foot{color:var(--faint);font-size:12px;margin-top:22px}
+  .ic{width:60px;height:60px;border-radius:16px;background:var(--fog);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+  .ic svg{width:30px;height:30px;color:var(--navy)}
+  .msg{font-size:14px;font-weight:600;min-height:20px;color:var(--ink)}
+  .msg.err{color:var(--err)} .msg.ok{color:var(--ok)}
+  .hint{font-size:12.5px;color:var(--faint);margin-top:12px;line-height:1.5}
+  .foot{display:inline-flex;align-items:center;gap:8px;color:var(--faint);font-size:12px;margin-top:20px}
+  .foot svg{width:14px;height:14px;color:var(--brass)}
 </style>
 </head>
 <body>
@@ -47,61 +69,134 @@
       </svg>
       <div class="name">MyKeyz <span>Claim</span></div>
     </a>
-    <div class="card" id="card"><div class="spinner"></div></div>
-    <div class="foot">A private link, just for your tenancy record.</div>
+    <div id="view"></div>
+    <div class="foot">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M6 10V8a6 6 0 0 1 12 0v2M5 10h14v10H5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      End-to-end encrypted · confirmed on your phone.
+    </div>
   </div>
 
 <script>
+// ── Config ───────────────────────────────────────────────────────────────────
 const API = 'https://api.mykeyz.io/v1';
-const card = document.getElementById('card');
+// HKDF info — MUST match the backend claim/pair seal. (salt = pairId.)
+const HKDF_INFO = 'mykeyz-claim-pair-v1';
+const QR_ORIGIN = 'https://claim.mykeyz.net'; // QR encodes <origin>/pair/<pairId>; app reads pairId
 
-const lockIcon = '<div class="ic"><svg viewBox="0 0 24 24" fill="none"><path d="M6 10V8a6 6 0 0 1 12 0v2M5 10h14v10H5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></div>';
+const enc = new TextEncoder();
+function b64ToBytes(b64){const s=atob(b64);const a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a;}
+function bytesToB64url(b){let s='';b.forEach(x=>s+=String.fromCharCode(x));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function b64urlToBytes(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return b64ToBytes(s);}
+const view = document.getElementById('view');
 
-// Cold visitor with no/invalid grant → locked shell, nothing else. Entry is only
-// from inside the MyKeyz app ("Start a claim" → emails this private link).
-function locked(){
-  card.innerHTML = lockIcon +
-    '<h1>This page opens from your app</h1>' +
-    '<p>The claim workspace opens from inside the MyKeyz app, once you have a completed tenancy record.</p>' +
-    '<p class="hint">Open the app, tap “Start a claim”, and we’ll email you a private link to continue here.</p>';
-}
-function expired(){
-  card.className = 'card err';
-  card.innerHTML = lockIcon +
-    '<h1>This link has expired</h1>' +
-    '<p>For your security the link is short-lived. Reopen the claim from the MyKeyz app to get a fresh one.</p>';
-}
-function checking(){
-  card.innerHTML = '<div class="spinner"></div><p style="margin-top:16px">Checking your access…</p>';
+// ── Screen 1: enter the code shown in the app ────────────────────────────────
+function screenCode(error){
+  view.innerHTML = `
+    <h1>Open your claim</h1>
+    <p class="sub">In the MyKeyz app, on your tenancy record, tap “File a deposit claim”. Enter the code it shows you below.</p>
+    <div class="card">
+      <div class="step">Step 1 · enter your code</div>
+      <input id="code" inputmode="text" autocomplete="off" autocapitalize="characters"
+             spellcheck="false" maxlength="9" placeholder="MK-0000" aria-label="Claim code">
+      <button id="go"><span>Continue</span>
+        <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      ${error?`<div class="msg err" style="margin-top:14px">${error}</div>`:''}
+      <div class="hint">No link to click — you came here yourself, and you’ll confirm it’s you from your phone. That’s what keeps your claim private.</div>
+    </div>`;
+  const input = document.getElementById('code');
+  const go = document.getElementById('go');
+  input.focus();
+  input.addEventListener('input', ()=>{ input.value = input.value.toUpperCase().replace(/[^A-Z0-9-]/g,''); });
+  const submit = ()=>{ const c = input.value.trim(); if(c.length>=4) join(c); else input.focus(); };
+  go.onclick = submit;
+  input.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
 }
 
-async function run(){
-  const t = new URLSearchParams(location.search).get('t');
-  if(!t || t.length < 10){ locked(); return; }
-  checking();
+// ── Step 2: join the pairing with our ephemeral public key, show the QR ───────
+async function join(code){
+  view.innerHTML = `<div class="card"><div class="spinner"></div><p class="sub" style="margin:16px 0 0">Checking your code…</p></div>`;
+  let kp;
+  try{ kp = await crypto.subtle.generateKey({name:'X25519'}, true, ['deriveBits']); }
+  catch{ return screenCode('This browser doesn’t support the secure handshake (use a current Chrome/Safari/Edge).'); }
+  const webPublicKey = bytesToB64url(new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey)));
+
+  let pairId, caseRef;
   try{
-    const r = await fetch(API+'/claim/redeem',{
+    const r = await fetch(API+'/claim/pair/join',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ token: t }),
+      body: JSON.stringify({ code, webPublicKey }),
     });
-    const b = await r.json().catch(()=>({}));
-    if(r.ok && b && b.authorized && b.session){
-      // Authorized: keep the claim session for the workspace's API calls.
-      sessionStorage.setItem('mk_web_token', b.session);          // tab-scoped
-      if(b.publicRef) sessionStorage.setItem('mk_public_ref', b.publicRef);
-      card.innerHTML = '<div class="ic" style="background:var(--ok-bg);border-color:var(--ok-line)"><svg viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="#15803d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><h1>Access confirmed</h1><p>Opening your claim workspace…</p>';
-      // Strip the token from the URL before handing off (don't leave it in history).
-      history.replaceState(null,'',location.pathname);
-      setTimeout(()=>{ location.href = './workspace.html'; }, 900);
+    if(r.status===410 || r.status===404) return screenCode('That code has expired or isn’t valid. Reopen the claim in the app for a fresh one.');
+    if(!r.ok) throw new Error('join '+r.status);
+    const j = await r.json();
+    pairId = j.pairId; caseRef = j.caseRef || j.publicRef || '';
+  }catch(e){ return screenCode('Couldn’t reach MyKeyz. Check your connection and try again.'); }
+
+  screenConfirm(kp.privateKey, pairId, caseRef);
+}
+
+// ── Step 3: show QR, poll until the phone confirms, then decrypt ──────────────
+function screenConfirm(privateKey, pairId, caseRef){
+  view.innerHTML = `
+    <h1>Confirm it’s you</h1>
+    <p class="sub">Scan this with the MyKeyz app to confirm this is your computer. Only your own device can unlock the claim.</p>
+    <div class="card">
+      <div class="step">Step 2 · scan with the app</div>
+      ${caseRef?`<div class="case">Case ${caseRef}</div><br>`:''}
+      <div id="qr"><div class="spinner"></div></div>
+      <div class="msg" id="msg">Waiting for your phone…</div>
+    </div>`;
+  const qr = document.getElementById('qr');
+  qr.innerHTML='';
+  new QRCode(qr, { text: `${QR_ORIGIN}/pair/${pairId}`, width:188, height:188,
+    colorDark:'#0A2540', colorLight:'#FFFFFF', correctLevel: QRCode.CorrectLevel.M });
+  poll(privateKey, pairId, caseRef);
+}
+
+async function poll(privateKey, pairId, caseRef){
+  const msg = document.getElementById('msg');
+  const deadline = Date.now() + 10*60*1000;
+  while(Date.now() < deadline){
+    await new Promise(r=>setTimeout(r,1500));
+    let res;
+    try{ res = await (await fetch(`${API}/claim/pair/${encodeURIComponent(pairId)}/poll`)).json(); }
+    catch{ continue; }
+    if(res.status==='awaiting_join' || res.status==='awaiting_confirm' || res.status==='pending') continue;
+    if(res.status==='expired' || res.status==='not_found'){
+      if(msg){ msg.textContent='This pairing expired. Refresh to start over.'; msg.className='msg err'; }
       return;
     }
-    expired();
-  }catch{
-    card.className = 'card err';
-    card.innerHTML = lockIcon + '<h1>Something went wrong</h1><p>Please reopen the claim from the MyKeyz app.</p>';
+    if(res.status==='authorized' && res.sealed){
+      if(msg){ msg.textContent='Phone confirmed — opening your claim…'; msg.className='msg ok'; }
+      try{
+        const token = await decryptSealed(privateKey, pairId, res.sealed);
+        sessionStorage.setItem('mk_web_token', token);
+        if(caseRef) sessionStorage.setItem('mk_public_ref', caseRef);
+        setTimeout(()=>{ location.href = './workspace.html'; }, 800);
+      }catch(e){
+        if(msg){ msg.textContent='Secure handshake failed to decrypt. Refresh and try again.'; msg.className='msg err'; }
+      }
+      return;
+    }
   }
+  if(msg){ msg.textContent='Timed out. Refresh to start over.'; msg.className='msg err'; }
 }
-run();
+
+// Mirror of the backend claim/pair seal: ECDH(X25519) → HKDF-SHA256(salt=pairId,
+// info=HKDF_INFO, 32B) → AES-256-GCM decrypt(iv, ct‖tag).
+async function decryptSealed(privateKey, pairId, sealed){
+  const epk = await crypto.subtle.importKey('raw', b64urlToBytes(sealed.epk), {name:'X25519'}, false, []);
+  const sharedBits = await crypto.subtle.deriveBits({name:'X25519', public: epk}, privateKey, 256);
+  const hkdfKey = await crypto.subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveBits']);
+  const keyBits = await crypto.subtle.deriveBits(
+    {name:'HKDF', hash:'SHA-256', salt: enc.encode(pairId), info: enc.encode(HKDF_INFO)}, hkdfKey, 256);
+  const aesKey = await crypto.subtle.importKey('raw', keyBits, {name:'AES-GCM'}, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv: b64ToBytes(sealed.iv)}, aesKey, b64ToBytes(sealed.ct));
+  return new TextDecoder().decode(pt);
+}
+
+screenCode();
 </script>
 </body>
 </html>

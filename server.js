@@ -11,7 +11,7 @@ const ROOT = __dirname;
 // Only these are public. Everything else (HANDOFF.md, TODO.md, server.js, the
 // retired QR connect.html…) is hidden. Door-A flow: index.html (private-link
 // gate) → workspace.html (claim workspace).
-const ALLOW = new Set(['index.html', 'workspace.html']);
+const ALLOW = new Set(['index.html', 'workspace.html', 'qrcode.min.js']);
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
