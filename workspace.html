@@ -123,6 +123,10 @@
   .note.good{background:var(--ok-bg);border:1px solid var(--ok-line);color:#1c5b38}
   .note.warn{background:var(--warn-bg);border:1px solid #efe0c2;color:var(--warn)}
   .note.bad{background:var(--err-bg);border:1px solid #f3cfc8;color:var(--err)}
+  .jurisdiction{display:flex;gap:10px;align-items:flex-start;background:var(--fog);border:1px solid var(--line);
+                border-radius:13px;padding:13px 15px;margin:0 0 14px;color:var(--navy-soft);font-size:13px;line-height:1.5}
+  .jurisdiction input{width:18px;height:18px;margin:2px 0 0;accent-color:var(--navy);flex:0 0 auto}
+  .jurisdiction b{color:var(--navy)}
 
   .fine{font-size:11.5px;line-height:1.6;color:var(--faint);margin:22px 0 0}
   .center{text-align:center;padding:60px 0;color:var(--muted)}
@@ -182,6 +186,9 @@ const svg = (k,extra='') => `<svg viewBox="0 0 24 24" fill="none" ${extra}>${I[k
 // ── helpers ──────────────────────────────────────────────────────────────────
 const app = document.getElementById('app');
 const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Only ever navigate to an https URL the API returned — blocks javascript:/data:
+// XSS and open-redirect on this token-bearing page. Returns the URL or null.
+const safeHttps = u => { try { return new URL(u).protocol === 'https:' ? u : null; } catch { return null; } };
 const aed = n => (n==null?null:'AED '+Number(n).toLocaleString('en-US'));
 const fmtDate = s => { try{ return new Date(s).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}catch{return '';} };
 
@@ -236,7 +243,8 @@ async function boot(){
     ]);
     PRICING = pricing;
     // Identity: the claim session is purpose-scoped (no /auth/me), so prefer the
-    // publicRef handed over at redeem; fall back to /auth/me if it's a full token.
+    // publicRef stored in sessionStorage at the QR connect step (mk_public_ref);
+    // fall back to /auth/me only if this is a full token.
     const name = (me && me.user && (me.user.fullName || me.user.email)) || sessionStorage.getItem('mk_public_ref');
     if(name) document.getElementById('sessionName').textContent = name;
 
@@ -275,9 +283,9 @@ function tierCard(x,feature){
     ${feature?'<span class="tag">Most choose this</span>':''}
     <span class="stg">Stage ${x.stage}</span>
     <h3>${esc(x.name)}</h3>
-    <div class="amt">AED ${x.priceAed}</div>
+    <div class="amt">AED ${esc(x.priceAed)}</div>
     <p class="desc">${esc(x.summary)}</p>
-    <button class="btn ${feature?'btn-primary':'btn-ghost'}" id="start-${x.tier}">Start here ${svg('arrow')}</button>
+    <button class="btn ${feature?'btn-primary':'btn-ghost'}" id="start-${esc(x.tier)}">Start here ${svg('arrow')}</button>
   </div>`;
 }
 async function startCase(tier, btn){
@@ -395,11 +403,13 @@ function paymentSection(c, paid, opts){
   }
   if(paid){
     const next = nextTier(c.tier);
+    const needsJurisdiction = !c.jurisdictionConfirmedAt;
     return `<div class="card">
       <div class="note good">${svg('check')}<div><b>Paid.</b> Your documents are prepared from your verified record and a secure download link has been emailed to you.</div></div>
+      ${needsJurisdiction?jurisdictionBox('case-jurisdiction-confirm'):''}
       <div class="btn-row">
         <button class="btn btn-primary" id="getpack">${svg('download')} Get the download link</button>
-        ${next?`<button class="btn btn-ghost" id="upgrade" data-tier="${next.tier}">Escalate to ${esc(next.name)} ${svg('arrow')}</button>`:''}
+        ${next?`<button class="btn btn-ghost" id="upgrade" data-tier="${esc(next.tier)}">Escalate to ${esc(next.name)} ${svg('arrow')}</button>`:''}
       </div>
       <div id="packmsg"></div>
       ${stageActions(c)}
@@ -409,9 +419,17 @@ function paymentSection(c, paid, opts){
   const tier = PRICING.tiers.find(t=>t.tier===c.tier) || PRICING.tiers[0];
   return `<div class="card">
     <div class="hd"><div><h2>Prepare ${esc(tier.name)}</h2><p>Pay securely on the web. Your prepared documents are then emailed to you as a secure download.</p></div></div>
-    <button class="btn btn-primary btn-block" id="pay" data-tier="${tier.tier}">${svg('lock')} Pay AED ${tier.priceAed} &amp; prepare</button>
+    ${jurisdictionBox('checkout-jurisdiction-confirm')}
+    <button class="btn btn-primary btn-block" id="pay" data-tier="${esc(tier.tier)}">${svg('lock')} Pay AED ${esc(tier.priceAed)} &amp; prepare</button>
     <p class="meter-note" style="margin-top:12px">Secure card payment. ${esc((PRICING.disclaimers||[])[0]||'')}</p>
   </div>`;
+}
+
+function jurisdictionBox(id){
+  return `<label class="jurisdiction" for="${id}">
+    <input id="${id}" type="checkbox">
+    <span><b>Dubai/RDC confirmation.</b> I confirm this is a Dubai tenancy matter intended for the Dubai Rental Dispute Centre workflow. MyKeyz prepares documents and does not provide legal advice or guarantee an outcome.</span>
+  </label>`;
 }
 
 function nextTier(tier){
@@ -431,20 +449,37 @@ function stageActions(c){
 
 function wirePayment(c){
   const pay = document.getElementById('pay');
-  if(pay) pay.onclick = ()=> checkout(c.id, pay.dataset.tier, pay);
+  if(pay) pay.onclick = ()=> checkout(c.id, pay.dataset.tier, pay, 'checkout-jurisdiction-confirm');
   const up = document.getElementById('upgrade');
-  if(up) up.onclick = ()=> checkout(c.id, up.dataset.tier, up);
+  if(up) up.onclick = ()=> checkout(c.id, up.dataset.tier, up, c.jurisdictionConfirmedAt ? null : 'case-jurisdiction-confirm');
   const gp = document.getElementById('getpack');
   if(gp) gp.onclick = ()=> getPack(c, gp);
   app.querySelectorAll('.stage-act').forEach(b=> b.onclick = ()=> advance(c.id, b.dataset.act, b));
 }
 
-async function checkout(id, tier, btn){
+function confirmJurisdiction(confirmId){
+  if(!confirmId) return true;
+  const input = document.getElementById(confirmId);
+  if(!input || input.checked) return true;
+  input.focus();
+  toast('Confirm this is a Dubai/RDC tenancy matter before continuing.','warn');
+  return false;
+}
+
+async function confirmCaseJurisdiction(id, confirmId){
+  if(!confirmJurisdiction(confirmId)) return false;
+  await api('/deposit-recovery/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({jurisdiction:'dubai_rdc'})});
+  return true;
+}
+
+async function checkout(id, tier, btn, confirmId){
+  if(!confirmJurisdiction(confirmId)) return;
   btn.disabled=true; const html=btn.innerHTML; btn.textContent='Opening secure checkout…';
   try{
-    const r = await api('/deposit-recovery/'+encodeURIComponent(id)+'/checkout',{method:'POST',body:JSON.stringify({tier})});
-    if(r && r.checkoutUrl){ location.href = r.checkoutUrl; return; }
-    throw new Error('No checkout URL returned.');
+    const r = await api('/deposit-recovery/'+encodeURIComponent(id)+'/checkout',{method:'POST',body:JSON.stringify({tier,jurisdiction:'dubai_rdc'})});
+    const checkoutUrl = r && safeHttps(r.checkoutUrl);
+    if(checkoutUrl){ location.href = checkoutUrl; return; }
+    throw new Error('No valid checkout URL returned.');
   }catch(e){
     btn.disabled=false; btn.innerHTML=html;
     if(e.code==='already_paid'){ toast('This case already covers that tier.','warn'); openCase(id); return; }
@@ -455,6 +490,15 @@ async function checkout(id, tier, btn){
 
 async function getPack(c, btn){
   const msg = document.getElementById('packmsg');
+  if(!c.jurisdictionConfirmedAt){
+    try{
+      const confirmed = await confirmCaseJurisdiction(c.id, 'case-jurisdiction-confirm');
+      if(!confirmed) return;
+    }catch(e){
+      msg.innerHTML = `<div class="note bad" style="margin-top:14px">${svg('info')}<div>${esc(e.message)}</div></div>`;
+      return;
+    }
+  }
   btn.disabled=true; const html=btn.innerHTML; btn.textContent='Preparing…';
   try{
     // Try a fresh signed link first; if none exists yet, assemble it.
@@ -463,9 +507,10 @@ async function getPack(c, btn){
     catch(e){ if(e.status!==404) throw e; }
     if(!url){ const p = await api('/deposit-recovery/'+encodeURIComponent(c.id)+'/pack',{method:'POST'}); url = p.downloadUrl; }
     btn.disabled=false; btn.innerHTML=html;
-    if(url){
-      msg.innerHTML = `<div class="note good" style="margin-top:14px">${svg('download')}<div>Your secure download is ready. <a href="${esc(url)}" style="font-weight:700;text-decoration:underline">Download your documents</a> — the link is valid for a short time.</div></div>`;
-      window.open(url,'_blank','noopener');
+    const safeUrl = safeHttps(url);
+    if(safeUrl){
+      msg.innerHTML = `<div class="note good" style="margin-top:14px">${svg('download')}<div>Your secure download is ready. <a href="${esc(safeUrl)}" style="font-weight:700;text-decoration:underline">Download your documents</a> — the link is valid for a short time.</div></div>`;
+      window.open(safeUrl,'_blank','noopener');
     }
   }catch(e){
     btn.disabled=false; btn.innerHTML=html;

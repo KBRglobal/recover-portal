@@ -72,7 +72,7 @@
     <div id="view"></div>
     <div class="foot">
       <svg viewBox="0 0 24 24" fill="none"><path d="M6 10V8a6 6 0 0 1 12 0v2M5 10h14v10H5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-      End-to-end encrypted · confirmed on your phone.
+      Confirmed on your phone · only your device can open this.
     </div>
   </div>
 
@@ -118,7 +118,7 @@ async function join(code){
   view.innerHTML = `<div class="card"><div class="spinner"></div><p class="sub" style="margin:16px 0 0">Checking your code…</p></div>`;
   let kp;
   try{ kp = await crypto.subtle.generateKey({name:'X25519'}, true, ['deriveBits']); }
-  catch{ return screenCode('This browser doesn’t support the secure handshake (use a current Chrome/Safari/Edge).'); }
+  catch{ return screenCode('This browser can’t open your claim securely. Use an up-to-date Chrome, Safari, or Edge.'); }
   const webPublicKey = bytesToB64url(new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey)));
 
   let pairId, caseRef;
@@ -130,7 +130,11 @@ async function join(code){
     if(r.status===410 || r.status===404) return screenCode('That code has expired or isn’t valid. Reopen the claim in the app for a fresh one.');
     if(!r.ok) throw new Error('join '+r.status);
     const j = await r.json();
-    pairId = j.pairId; caseRef = j.caseRef || j.publicRef || '';
+    pairId = j.pairId;
+    // Sanitize the server-supplied case ref at the source: it is rendered into
+    // innerHTML on the confirm screen, so clamp it to a safe charset/length
+    // (no HTML can survive) instead of trusting it raw.
+    caseRef = String(j.caseRef || j.publicRef || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
   }catch(e){ return screenCode('Couldn’t reach MyKeyz. Check your connection and try again.'); }
 
   screenConfirm(kp.privateKey, pairId, caseRef);
@@ -157,17 +161,23 @@ function screenConfirm(privateKey, pairId, caseRef){
 async function poll(privateKey, pairId, caseRef){
   const msg = document.getElementById('msg');
   const deadline = Date.now() + 10*60*1000;
+  let notFound = 0; // tolerate a transient not_found near the deadline
   while(Date.now() < deadline){
     await new Promise(r=>setTimeout(r,1500));
     let res;
     try{ res = await (await fetch(`${API}/claim/pair/${encodeURIComponent(pairId)}/poll`)).json(); }
     catch{ continue; }
-    if(res.status==='awaiting_join' || res.status==='awaiting_confirm' || res.status==='pending') continue;
+    if(res.status==='awaiting_join' || res.status==='awaiting_confirm' || res.status==='pending'){ notFound=0; continue; }
+    // A single not_found can be a transient backend hiccup — only treat it as
+    // terminal after several in a row (a truly-deleted pairing) or once the
+    // 10-minute window elapses.
+    if(res.status==='not_found' && ++notFound < 5) continue;
     if(res.status==='expired' || res.status==='not_found'){
-      if(msg){ msg.textContent='This pairing expired. Refresh to start over.'; msg.className='msg err'; }
+      if(msg){ msg.textContent='This pairing expired. Start the claim again from the app.'; msg.className='msg err'; }
       return;
     }
     if(res.status==='authorized' && res.sealed){
+      notFound = 0;
       if(msg){ msg.textContent='Phone confirmed — opening your claim…'; msg.className='msg ok'; }
       try{
         const token = await decryptSealed(privateKey, pairId, res.sealed);
@@ -175,12 +185,14 @@ async function poll(privateKey, pairId, caseRef){
         if(caseRef) sessionStorage.setItem('mk_public_ref', caseRef);
         setTimeout(()=>{ location.href = './workspace.html'; }, 800);
       }catch(e){
-        if(msg){ msg.textContent='Secure handshake failed to decrypt. Refresh and try again.'; msg.className='msg err'; }
+        // The pairing was single-use and is now spent — refreshing can't recover
+        // it, so direct the user back to the app for a fresh claim.
+        if(msg){ msg.textContent='Couldn’t open the claim on this device. Start the claim again from the app.'; msg.className='msg err'; }
       }
       return;
     }
   }
-  if(msg){ msg.textContent='Timed out. Refresh to start over.'; msg.className='msg err'; }
+  if(msg){ msg.textContent='Timed out. Start the claim again from the app.'; msg.className='msg err'; }
 }
 
 // Mirror of the backend claim/pair seal: ECDH(X25519) → HKDF-SHA256(salt=pairId,

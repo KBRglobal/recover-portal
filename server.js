@@ -8,9 +8,9 @@ const path = require('node:path');
 const PORT = process.env.PORT || 8102;
 const ROOT = __dirname;
 
-// Only these are public. Everything else (HANDOFF.md, TODO.md, server.js, the
-// retired QR connect.html…) is hidden. Door-A flow: index.html (private-link
-// gate) → workspace.html (claim workspace).
+// Only these are public. Everything else (HANDOFF.md, TODO.md, server.js, old
+// experiments) is hidden. Launch flow: index.html (claimPair code+QR gate) →
+// workspace.html (claim workspace).
 const ALLOW = new Set(['index.html', 'workspace.html', 'qrcode.min.js']);
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -46,12 +46,23 @@ const server = http.createServer((req, res) => {
         return res.end('Not found');
       }
       const ext = path.extname(name);
-      res.writeHead(200, {
+      const headers = {
         'Content-Type': TYPES[ext] || 'application/octet-stream',
         'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=3600',
         'X-Content-Type-Options': 'nosniff',
         'X-Robots-Tag': 'noindex, nofollow',
-      });
+        'Referrer-Policy': 'no-referrer',
+        'Strict-Transport-Security': 'max-age=63072000; includeSubDomains',
+      };
+      // The claim pages hold a bearer token in sessionStorage and run Stripe
+      // flows — lock framing and sources down on the HTML responses.
+      if (ext === '.html') {
+        headers['Content-Security-Policy'] =
+          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+          "img-src 'self' data:; connect-src https://api.mykeyz.io; frame-ancestors 'none'; base-uri 'none'";
+        headers['X-Frame-Options'] = 'DENY';
+      }
+      res.writeHead(200, headers);
       res.end(buf);
     });
   } catch {
